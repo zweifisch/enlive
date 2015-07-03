@@ -11,6 +11,11 @@
     (should (equal (enlive-get-element-by-id element "id2")
                    '(span ((id . "id2")))))))
 
+(ert-deftest enlive-test-get-elements-by-tag-name ()
+  (let ((element (enlive-parse "<div><span>span</span></div>")))
+    (should (equal (enlive-get-elements-by-tag-name element 'span)
+                   '((span nil "span"))))))
+
 (ert-deftest enlive-test-find-elements ()
   (let ((element (enlive-parse "<div id=\"id1\" class=\"cls cls2\"><span id=\"id2\"></span></div>")))
     (should (equal (enlive-find-elements element '(":" "id2"))

@@ -1,0 +1,56 @@
+* enlive
+
+query html document with css selectors
+
+** supported selectors
+
+| selector | description                      |
+|----------+----------------------------------|
+| =:=      | id =[:main]=                     |
+| =.=      | class =[.content.home-page]=     |
+| =tag=    | tagname =[p.demo a]=             |
+| =>=      | direct children =[.article > p]= |
+| =*=      | all nodes =[:section > *]=       |
+
+- use =:= for id not =#=
+- leave spaces around =>=, like =[:app.items > .item > a]=
+
+** usage
+   
+*** enlive-fetch
+    
+: #+BEGIN_SRC elisp
+: (require 'enlive)
+: 
+: (enlive-text
+:  (enlive-query (enlive-fetch "http://gnu.org/") [title]))
+: #+END_SRC
+: 
+: #+RESULTS:
+: : The GNU Operating System and the Free Software Movement
+
+*** enlive-parse
+
+: #+BEGIN_SRC elisp :results raw
+: (enlive-query-all
+:  (enlive-parse "<div class=\"content\">
+:                    <p>p1</p>
+:                    <p>p2</p>
+:                 </div>")
+:  [.content p])
+: #+END_SRC
+: 
+: #+RESULTS:
+: ((p nil p1) (p nil p2))
+
+*** enlive-query
+    
+- enlive-query-all will return all node mached
+
+*** some dom related functions
+
+- =enlive-get-element-by-id=
+- =enlive-get-elements-by-tag-name=
+- =enlive-get-elements-by-class-name=
+- =enlive-has-class=
+- =enlive-attr=
