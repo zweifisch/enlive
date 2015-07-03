@@ -1,22 +1,40 @@
+;;; enlive.el --- query html document with css selectors
 
+;; Copyright (C) 2015 ZHOU Feng
+
+;; Author: ZHOU Feng <zf.pascal@gmail.com>
+;; URL: http://github.com/zweifisch/enlive
+;; Keywords: css selector query
+;; Version: 0.0.1
+;; Created: 2st July 2015
+
+;;; Commentary:
+;;
+;; query html document with css selectors
+;;
+
+;;; Code:
 (require 'cl)
-
-(defalias 'enlive-parse-region 'libxml-parse-html-region)
 
 (defun enlive-parse (input)
   (with-temp-buffer
     (insert input)
     (libxml-parse-html-region (point-min) (point-max))))
 
-(defun enlive-fetch (url encoding)
+(defalias 'enlive-parse-region 'libxml-parse-html-region)
+
+(defun enlive-fetch (url &optional encoding)
   (with-current-buffer (url-retrieve-synchronously url)
     (goto-char (point-min))
     (search-forward-regexp "\n[\t\n ]*\n+")
-    (decode-coding-region (point) (point-max) encoding)
+    (decode-coding-region (point) (point-max) (or encoding 'utf-8))
     (libxml-parse-html-region (point) (point-max))))
 
+(defun enlive-is-element (element)
+  (and (listp element) (symbolp (car element))))
+
 (defun enlive-direct-children (element)
-  (when (listp element)
+  (when (enlive-is-element element)
     (cdr (cdr element))))
 
 (defun enlive-text (element)
@@ -44,7 +62,7 @@
       result)))
 
 (defun enlive-filter (element predict)
-  (let ((results (when (funcall predict element) (list element)))
+  (let ((results (when (and (enlive-is-element element) (funcall predict element)) (list element)))
          (children (enlive-direct-children element)))
     (when children
       (dolist (child children)
@@ -63,9 +81,14 @@
 (defun enlive-get-element-by-id (element id)
   (enlive-some element (lambda (node) (string= id (enlive-attr node 'id)))))
 
+(defun enlive-all (element)
+  (enlive-filter element (lambda (node) t)))
+
 (defun enlive-match-element (element criteria)
   (let ((tag (car criteria)))
     (catch 'failed
+      (unless (enlive-is-element element)
+        (throw 'failed nil))
       (unless (or (string= tag ":") (string= tag "."))
         (setq criteria (cdr criteria))
         (when (not (string= (symbol-name (car element)) tag))
@@ -77,41 +100,36 @@
                      (cond ((string= ":" type) (string= val (enlive-attr element 'id )))
                            ((string= "." type) (enlive-has-class element val)))
                    (throw 'failed nil))))
-      element)))
+      (list element))))
 
-(defun enlive-find-element (element criteria)
+(defun enlive-find-elements (element criteria)
   (enlive-filter element (lambda (node) (enlive-match-element node criteria))))
 
-(defun enlive-parse-single-selector (selector prev)
-  (cond ((eq selector '>) '(enlive-direct-children element))
-        ((eq selector '*) '(identity element))
-        (t `(,(if (eq prev '>) 'enlive-match-element 'enlive-find-element)
-             element ',(butlast (cdr (split-string (symbol-name selector) "\\b"))))))) 
-
 (defun enlive-parse-selector (selector)
-  (let ((prev nil))
-    (mapcar (lambda (x)
-              (let ((parsed (enlive-parse-single-selector x prev)))
-                (setq prev x)
-                parsed))
-            selector)))
+  (let ((result '()))
+    (dotimes (n (length selector))
+      (let ((current (elt selector n))
+            (prev (when (> n 0) (elt selector (- n 1)))))
+        (when (and prev (not (eq prev '>)) (not (eq current '>)))
+          (push '(enlive-direct-children node) result))
+        (push (cond ((eq current '>) '(enlive-direct-children node))
+                    ((eq current '*) '(enlive-all node))
+                    (t `(,(if (null prev) 'enlive-find-elements 'enlive-match-element)
+                         node ',(butlast (cdr (split-string (symbol-name current) "\\b"))))))
+              result)))
+    (nreverse result)))
 
-(defun enlive-query (element selector)
-  (let ((criteria (enlive-parse-selector selector)))
+(defun enlive-query-all (element selector)
+  (let ((criteria (enlive-parse-selector selector))
+        (element (if (enlive-is-element element) (list element) element)))
     (while (and element criteria)
       (let ((head (car criteria)))
         (setq criteria (cdr criteria))
-        (setq element (eval head))))
+        (setq element (apply 'append (delq nil (eval `(mapcar (lambda (node) ,head) element)))))))
     element))
 
-(enlive-query 
- (enlive-parse "<div id=\"id1\" class=\"cls cls2\"><span class=\"cls2\"></span></div>") [.cls2])
+(defun enlive-query (element selector)
+  (car (enlive-query-all element selector)))
 
-(enlive-get-elements-by-class-name
- (enlive-parse "<div id=\"id1\" class=\"cls cls2\"></div>") "cls2")
-
-(enlive-get-element-by-id
- (enlive-parse "<div id=\"id1\" class=\"cls cls2\"></div>") "id1")
-
-(enlive-find-element
- (enlive-parse "<div id=\"id1\" class=\"cls cls2\"></div>") '(":" "id1"))
+(provide 'enlive)
+;;; enlive.el ends here
