@@ -1,5 +1,7 @@
 * enlive
 
+[[https://travis-ci.org/zweifisch/enlive][file:https://travis-ci.org/zweifisch/enlive.svg?branch=master]]
+
 query html document with css selectors
 
 ** supported selectors
