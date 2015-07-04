@@ -85,25 +85,31 @@
   (enlive-filter element (lambda (node) t)))
 
 (defun enlive-match-element (element criteria)
-  (let ((tag (car criteria)))
-    (catch 'failed
-      (unless (enlive-is-element element)
-        (throw 'failed nil))
-      (unless (or (string= tag ":") (string= tag "."))
-        (setq criteria (cdr criteria))
-        (when (not (string= (symbol-name (car element)) tag))
-          (throw 'failed nil)))
-      (dotimes (i (/ (length criteria) 2))
-               (let ((type (nth (+ i i) criteria))
-                     (val (nth (+ i i 1) criteria)))
-                 (unless 
-                     (cond ((string= ":" type) (string= val (enlive-attr element 'id )))
-                           ((string= "." type) (enlive-has-class element val)))
-                   (throw 'failed nil))))
+  (when (enlive-is-element element)
+    (when
+        (loop for (type . val) in criteria
+              always (pcase type
+                       (`id (string= val (enlive-attr element 'id )))
+                       (`class (enlive-has-class element val))
+                       (`tag (string= (symbol-name (car element)) val))))
       (list element))))
 
 (defun enlive-find-elements (element criteria)
   (enlive-filter element (lambda (node) (enlive-match-element node criteria))))
+
+(defun enlive-tokenize (selector)
+  "selector should be tag:id.cls.cls2"
+  (let ((tokens '())
+        (type 'tag)
+        (value nil)
+        (collect (lambda () (when value (push (cons type value) tokens) (setq value nil)))))
+    (dotimes (i (length selector))
+      (let ((c (char-to-string (elt selector i))))
+        (cond ((string= ":" c) (funcall collect) (setq type 'id))
+              ((string= "." c) (funcall collect) (setq type 'class))
+              (t (setq value (concat value c))))))
+    (funcall collect)
+    (nreverse tokens)))
 
 (defun enlive-parse-selector (selector)
   (let ((result '()))
@@ -115,7 +121,7 @@
         (push (cond ((eq current '>) '(enlive-direct-children node))
                     ((eq current '*) '(enlive-all node))
                     (t `(,(if (eq prev '>) 'enlive-match-element 'enlive-find-elements)
-                         node ',(butlast (cdr (split-string (symbol-name current) "\\b"))))))
+                         node ',(enlive-tokenize (symbol-name current)))))
               result)))
     (nreverse result)))
 
