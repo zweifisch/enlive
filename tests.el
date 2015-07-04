@@ -25,6 +25,10 @@
   (should (equal (enlive-parse-selector [.cls .cls2])
                  '((enlive-find-elements node (quote ("." "cls")))
                    (enlive-direct-children node)
+                   (enlive-find-elements node (quote ("." "cls2"))))))
+  (should (equal (enlive-parse-selector [tag > .cls2])
+                 '((enlive-find-elements node (quote ("tag")))
+                   (enlive-direct-children node)
                    (enlive-match-element node (quote ("." "cls2"))))))
   (should (equal (enlive-parse-selector [div *])
                  '((enlive-find-elements node (quote ("div")))
@@ -43,16 +47,22 @@
 
 (ert-deftest enlive-test-query-nested-classes ()
   (let ((element (enlive-parse "<p class=\"cls cls2\">
+                                    <i class=\"cls3\"></i>
                                     <i class=\"cls3\">
-                                        <i class=\"cls4\"></i>
+                                        <i class=\"cls4\">
+                                            <i class=\"cls5\"></i>
+                                        </i>
                                     </i>
                                     <i class=\"cls3\">
                                         <i class=\"cls4\"></i>
                                     </i>
                                 </p>")))
-    (should (equal (enlive-query-all element [.cls2 .cls3 .cls4])
-                   '((i ((class . "cls4")))
-                     (i ((class . "cls4"))))))))
+    (should (equal (enlive-query-all element [.cls2 .cls3 .cls4 .cls5])
+                   '((i ((class . "cls5"))))))
+    (should (equal (enlive-query-all element [.cls2 .cls3 .cls5])
+                   '((i ((class . "cls5"))))))
+    (should (equal (enlive-query-all element [.cls3 .cls5])
+                   '((i ((class . "cls5"))))))))
 
 (ert-deftest enlive-test-query-tag ()
   (let ((element (enlive-parse "<p><a><i></i></a></p>")))

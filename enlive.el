@@ -114,7 +114,7 @@
           (push '(enlive-direct-children node) result))
         (push (cond ((eq current '>) '(enlive-direct-children node))
                     ((eq current '*) '(enlive-all node))
-                    (t `(,(if (null prev) 'enlive-find-elements 'enlive-match-element)
+                    (t `(,(if (eq prev '>) 'enlive-match-element 'enlive-find-elements)
                          node ',(butlast (cdr (split-string (symbol-name current) "\\b"))))))
               result)))
     (nreverse result)))
@@ -130,6 +130,16 @@
 
 (defun enlive-query (element selector)
   (car (enlive-query-all element selector)))
+
+(defun enlive-insert-element (exp)
+  (let ((exp (mapcar (lambda (x) (if (listp x) (enlive-insert-element x) x)) exp)))
+    (if (member (car exp) '(enlive-query enlive-query-all))
+        (append (list (car exp) element) (cdr exp))
+      exp)))
+
+(defmacro enlive-with (element &rest body)
+  (cons 'progn
+        (mapcar 'enlive-insert-element body)))
 
 (provide 'enlive)
 ;;; enlive.el ends here
