@@ -23,12 +23,13 @@
 
 (defalias 'enlive-parse-region 'libxml-parse-html-region)
 
-(defun enlive-fetch (url &optional encoding)
-  (with-current-buffer (url-retrieve-synchronously url)
-    (goto-char (point-min))
-    (search-forward-regexp "\n[\t\n ]*\n+")
-    (decode-coding-region (point) (point-max) (or encoding 'utf-8))
-    (libxml-parse-html-region (point) (point-max))))
+(defun enlive-fetch (url &optional encoding timeout)
+  (with-timeout ((or timeout 5) nil)
+    (with-current-buffer (url-retrieve-synchronously url)
+      (goto-char (point-min))
+      (search-forward-regexp "\n[\t\n ]*\n+")
+      (decode-coding-region (point) (point-max) (or encoding 'utf-8))
+      (libxml-parse-html-region (point) (point-max)))))
 
 (defun enlive-is-element (element)
   (and (listp element) (symbolp (car element))))

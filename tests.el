@@ -80,3 +80,9 @@
 (ert-deftest enlive-test-tokenize ()
   (should (equal (enlive-tokenize "tag:id.cls.cls2")
                  '((tag . "tag") (id . "id") (class . "cls") (class . "cls2")))))
+
+(ert-deftest enlive-test-with ()
+  (let ((element (enlive-parse "<div class=\"cls\"><span><i></i></span><i></i></div>")))
+    (enlive-with element
+                 (should (equal (enlive-query-all [.cls i])
+                                '((i nil) (i nil)))))))
