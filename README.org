@@ -48,6 +48,29 @@ query html document with css selectors
 *** enlive-query
     
 - enlive-query-all will return all node mached
+  
+*** enlive-with
+    
+: #+BEGIN_SRC elisp :results raw
+: (macroexpand '(enlive-with element
+:                            (enlive-query [div])
+:                            (enlive-query-all [.cls])))
+: #+END_SRC
+: 
+: #+RESULTS:
+: (progn (enlive-query element [div]) (enlive-query-all element [.cls]))
+
+*** enlive-let
+    
+: #+BEGIN_SRC elisp :results raw
+: (enlive-let (enlive-parse "<span><i class=\"foo\">foo</i><i class=\"bar\">bar</i></span>")
+:             ((foo [.foo])
+:              (bar [.bar]))
+:             (list (enlive-text (car foo)) (enlive-text (car bar))))
+: #+END_SRC
+: 
+: #+RESULTS:
+: (foo bar)
 
 *** some dom related functions
 

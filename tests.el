@@ -82,7 +82,15 @@
                  '((tag . "tag") (id . "id") (class . "cls") (class . "cls2")))))
 
 (ert-deftest enlive-test-with ()
-  (let ((element (enlive-parse "<div class=\"cls\"><span><i></i></span><i></i></div>")))
-    (enlive-with element
-                 (should (equal (enlive-query-all [.cls i])
-                                '((i nil) (i nil)))))))
+  (enlive-with (enlive-parse "<div class=\"cls\"><span><i></i></span><i></i></div>")
+               (should (equal (enlive-query-all [.cls i])
+                              '((i nil) (i nil))))))
+
+(ert-deftest enlive-test-let ()
+  (should
+   (equal
+    (enlive-let (enlive-parse "<div><span><i class=\"cls1\"></i></span><span class=\"cls2\"></span></div>")
+                ((el1 [.cls1])
+                 (el2 [.cls2]))
+                (list (caar el1) (caar el2)))
+    '(i span))))

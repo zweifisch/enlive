@@ -148,5 +148,10 @@
   (cons 'progn
         (mapcar 'enlive-insert-element body)))
 
+(defmacro enlive-let (element bindings &rest body)
+  (append
+   (list (append (list 'lambda (mapcar 'car bindings)) body))
+        (mapcar (lambda (x) (list 'enlive-query-all element (cadr x))) bindings)))
+
 (provide 'enlive)
 ;;; enlive.el ends here
