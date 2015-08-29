@@ -1,6 +1,7 @@
 * enlive
 
 [[https://travis-ci.org/zweifisch/enlive][file:https://travis-ci.org/zweifisch/enlive.svg?branch=master]]
+[[http://stable.melpa.org/#/enlive][file:http://stable.melpa.org/packages/enlive-badge.svg]]
 
 query html document with css selectors
 
