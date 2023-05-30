@@ -1,11 +1,12 @@
-;;; enlive.el --- query html document with css selectors
+;;; enlive.el --- Query html document with css selectors
 
 ;; Copyright (C) 2015 ZHOU Feng
 
 ;; Author: ZHOU Feng <zf.pascal@gmail.com>
 ;; URL: http://github.com/zweifisch/enlive
-;; Keywords: css selector query
+;; Keywords: tools css selector query
 ;; Version: 0.0.1
+;; Package-Requires: ((emacs "24.3"))
 ;; Created: 2st July 2015
 
 ;; This file is free software; you can redistribute it and/or modify
@@ -23,20 +24,23 @@
 
 ;;; Commentary:
 ;;
-;; query html document with css selectors
+;; Query html document with css selectors
 ;;
 
 ;;; Code:
-(require 'cl)
+
+(require 'cl-lib)
 
 (defun enlive-parse (input)
+  "Parse INPUT."
   (with-temp-buffer
-    (insert input)
+      (insert input)
     (libxml-parse-html-region (point-min) (point-max))))
 
 (defalias 'enlive-parse-region 'libxml-parse-html-region)
 
 (defun enlive-fetch (url &optional encoding timeout)
+  "Fetch URL (optionally with ENCODING and TIMEOUT)."
   (with-timeout ((or timeout 5) nil)
     (with-current-buffer (url-retrieve-synchronously url)
       (goto-char (point-min))
@@ -45,39 +49,45 @@
       (libxml-parse-html-region (point) (point-max)))))
 
 (defun enlive-is-element (element)
+  "Is ELEMENT?"
   (and (listp element) (symbolp (car element))))
 
 (defun enlive-direct-children (element)
+  "Direct children of ELEMENT."
   (when (enlive-is-element element)
     (cdr (cdr element))))
 
 (defun enlive-text (element)
+  "Text of ELEMENT."
   (if (stringp element) element
-    (let ((result ""))
-      (dolist (child (enlive-direct-children element))
-        (setq result (concat result (enlive-text child))))
-      result)))
+      (let ((result ""))
+        (dolist (child (enlive-direct-children element))
+          (setq result (concat result (enlive-text child))))
+        result)))
 
 (defun enlive-attr (element attr)
+  "Return ATTR of ELEMENT."
   (cdr (assoc attr (cadr element))))
 
 (defun enlive-has-class (element class)
   (let ((class-names (enlive-attr element 'class)))
-    (when class-names 
+    (when class-names
       (member class (split-string class-names)))))
 
 (defun enlive-some (element predict)
   (if (funcall predict element) element
-    (let (result)
-      (dolist (child (enlive-direct-children element))
-        (when (and (listp child) (null result))
-          (let ((r (enlive-get-element-by-id child id)))
-            (when r (setq result r)))))
-      result)))
+      (let (result)
+        (dolist (child (enlive-direct-children element))
+          (when (and (listp child) (null result))
+            (let ((r (enlive-get-element-by-id child id)))
+              (when r (setq result r)))))
+        result)))
 
 (defun enlive-filter (element predict)
-  (let ((results (when (and (enlive-is-element element) (funcall predict element)) (list element)))
-         (children (enlive-direct-children element)))
+  (let ((results (when (and (enlive-is-element element)
+                            (funcall predict element))
+                   (list element)))
+        (children (enlive-direct-children element)))
     (when children
       (dolist (child children)
         (when (listp child)
@@ -101,22 +111,24 @@
 (defun enlive-match-element (element criteria)
   (when (enlive-is-element element)
     (when
-        (loop for (type . val) in criteria
-              always (pcase type
-                       (`id (string= val (enlive-attr element 'id )))
-                       (`class (enlive-has-class element val))
-                       (`tag (string= (symbol-name (car element)) val))))
+        (cl-loop for (type . val) in criteria
+                 always (pcase type
+                               (`id (string= val (enlive-attr element 'id )))
+                               (`class (enlive-has-class element val))
+                               (`tag (string= (symbol-name (car element)) val))))
       (list element))))
 
 (defun enlive-find-elements (element criteria)
   (enlive-filter element (lambda (node) (enlive-match-element node criteria))))
 
 (defun enlive-tokenize (selector)
-  "selector should be tag:id.cls.cls2"
-  (let ((tokens '())
-        (type 'tag)
-        (value nil)
-        (collect (lambda () (when value (push (cons type value) tokens) (setq value nil)))))
+  "SELECTOR should be tag:id.cls.cls2."
+  (let* ((tokens '())
+         (type 'tag)
+         (value nil)
+         (collect (lambda ()
+                    (when value (push (cons type value) tokens)
+                          (setq value nil)))))
     (dotimes (i (length selector))
       (let ((c (char-to-string (elt selector i))))
         (cond ((string= ":" c) (funcall collect) (setq type 'id))
@@ -143,28 +155,40 @@
   (let ((criteria (enlive-parse-selector selector))
         (element (if (enlive-is-element element) (list element) element)))
     (while (and element criteria)
-      (let ((head (car criteria)))
-        (setq criteria (cdr criteria))
-        (setq element (apply 'append (delq nil (eval `(mapcar (lambda (node) ,head) element)))))))
+           (let ((head (car criteria)))
+             (setq criteria (cdr criteria))
+             (setq element
+                   (apply 'append
+                          (delq nil
+                                (eval `(mapcar (lambda (node) ,head)
+                                               element)))))))
     element))
 
 (defun enlive-query (element selector)
   (car (enlive-query-all element selector)))
 
 (defun enlive-insert-element (exp)
-  (let ((exp (mapcar (lambda (x) (if (listp x) (enlive-insert-element x) x)) exp)))
+  (let ((exp (mapcar
+              (lambda (x) (if (listp x)
+                              (enlive-insert-element x) x))
+              exp)))
     (if (member (car exp) '(enlive-query enlive-query-all))
         (append (list (car exp) element) (cdr exp))
-      exp)))
+        exp)))
 
 (defmacro enlive-with (element &rest body)
+  "With form ELEMENT with BODY."
   (cons 'progn
         (mapcar 'enlive-insert-element body)))
 
 (defmacro enlive-let (element bindings &rest body)
+  "Let form ELEMENT with BINDINGS and BODY."
   (append
    (list (append (list 'lambda (mapcar 'car bindings)) body))
-        (mapcar (lambda (x) (list 'enlive-query-all element (cadr x))) bindings)))
+   (mapcar (lambda (x)
+             (list 'enlive-query-all element (cadr x)))
+           bindings)))
 
 (provide 'enlive)
+
 ;;; enlive.el ends here
